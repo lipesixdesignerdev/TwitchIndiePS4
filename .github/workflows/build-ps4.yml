@@ -234,4 +234,3 @@ jobs:
             sce_sys/param.sfo
             sce_sys/icon0.png
           if-no-files-found: ignore
-```
