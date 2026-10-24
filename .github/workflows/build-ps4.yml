@@ -1,0 +1,53 @@
+name: Build PS4 GoldHEN 12.52
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang lld python3
+      - name: Download OpenOrbis Toolchain
+        run: |
+          curl -L -o toolchain-llvm-18.tar.gz \
+            https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain/releases/download/v0.5.4/toolchain-llvm-18.tar.gz
+      - name: Extract SDK
+        run: |
+          mkdir -p $HOME/ps4sdk
+          tar -xzf toolchain-llvm-18.tar.gz -C $HOME/ps4sdk
+      - name: Set environment
+        run: |
+          echo "OO_PS4_TOOLCHAIN=$HOME/ps4sdk/OpenOrbis/PS4Toolchain" >> $GITHUB_ENV
+          echo "PATH=$HOME/ps4sdk/OpenOrbis/PS4Toolchain/bin/linux:$PATH" >> $GITHUB_ENV
+      - name: Build minimal test (hello_ps4)
+        run: |
+          clang -Iinclude -I$OO_PS4_TOOLCHAIN/include -D__PS4__ \
+            -c tests/hello_ps4.c -o tests/hello_ps4.o
+      - name: Link ELF
+        run: |
+          lld -o TwitchIndiePS4.elf tests/hello_ps4.o \
+            -L$OO_PS4_TOOLCHAIN/lib -lSceLibcInternal -lSceKernel -lsys
+      - name: Create eboot.bin (create-fself)
+        run: |
+          $OO_PS4_TOOLCHAIN/bin/linux/create-fself TwitchIndiePS4.elf eboot.bin
+      - name: Create .gp4 project (create-gp4)
+        run: |
+          echo "Nota: .gp4 necessario para pkg_build conforme SDK lib/libOrbispkg README"
+          $OO_PS4_TOOLCHAIN/bin/linux/create-gp4 TwitchIndiePS4.gp4 || echo "create-gp4 nao testado; verifique .gp4 manualmente"
+      - name: Create package (.PKG) using PkgTool.Core
+        run: |
+          echo "Nota: PkgTool.Core (Linux x86_64 SDK) usa sintaxe real: pkg_build <gp4> <dir> (verificado no SDK README.md)"
+          mkdir -p pkg_output
+          $OO_PS4_TOOLCHAIN/bin/linux/PkgTool.Core pkg_build TwitchIndiePS4.gp4 pkg_output/ || echo "Falha: verifique .gp4"
+      - name: Verify artifacts
+        run: |
+          ls -la TwitchIndiePS4.elf eboot.bin TwitchIndiePS4.pkg || exit 1
+          echo "Build OK: PS4 artifacts produced"

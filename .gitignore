@@ -1,0 +1,11 @@
+# Exclusões para repositório privado
+*.pem
+*.key
+*.tar.gz
+toolchain-llvm-18/
+/hombreps4  # se extraído localmente
+TwitchIndiePS4.elf
+TwitchIndiePS4.pkg
+*.o
+*.gp4
+pkg_output/
