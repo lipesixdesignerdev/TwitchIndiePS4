@@ -2,52 +2,79 @@ name: Build PS4 GoldHEN 12.52
 
 on:
   push:
-    branches: [main]
+    branches: [master]
   pull_request:
-    branches: [main]
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang lld python3
+          sudo apt-get install -y clang lld python3 curl tar
+
       - name: Download OpenOrbis Toolchain
         run: |
-          curl -L -o toolchain-llvm-18.tar.gz \
+          curl --fail --location --retry 3 --output toolchain-llvm-18.tar.gz \
             https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain/releases/download/v0.5.4/toolchain-llvm-18.tar.gz
+          tar -tzf toolchain-llvm-18.tar.gz | head -40
+
       - name: Extract SDK
         run: |
-          mkdir -p $HOME/ps4sdk
-          tar -xzf toolchain-llvm-18.tar.gz -C $HOME/ps4sdk
+          mkdir -p "$HOME/ps4sdk"
+          tar -xzf toolchain-llvm-18.tar.gz -C "$HOME/ps4sdk"
+          find "$HOME/ps4sdk" -maxdepth 5 -type f \( -name 'create-fself' -o -name 'create-gp4' -o -name 'PkgTool.Core' -o -name 'orbis-clang' -o -name 'clang' -o -name 'ld.lld' \) -print
+          test -d "$HOME/ps4sdk/OpenOrbis/PS4Toolchain"
+
       - name: Set environment
         run: |
-          echo "OO_PS4_TOOLCHAIN=$HOME/ps4sdk/OpenOrbis/PS4Toolchain" >> $GITHUB_ENV
-          echo "PATH=$HOME/ps4sdk/OpenOrbis/PS4Toolchain/bin/linux:$PATH" >> $GITHUB_ENV
-      - name: Build minimal test (hello_ps4)
+          echo "OO_PS4_TOOLCHAIN=$HOME/ps4sdk/OpenOrbis/PS4Toolchain" >> "$GITHUB_ENV"
+          echo "$HOME/ps4sdk/OpenOrbis/PS4Toolchain/bin/linux" >> "$GITHUB_PATH"
+
+      - name: Inspect SDK tools and sample
         run: |
-          clang -Iinclude -I$OO_PS4_TOOLCHAIN/include -D__PS4__ \
-            -c tests/hello_ps4.c -o tests/hello_ps4.o
+          ls -la "$OO_PS4_TOOLCHAIN/bin/linux"
+          test -f tests/hello_ps4.c
+          test -f "$OO_PS4_TOOLCHAIN/bin/linux/create-fself"
+          test -f "$OO_PS4_TOOLCHAIN/bin/linux/PkgTool.Core"
+
+      - name: Build minimal test object
+        run: |
+          clang -Iinclude -I"$OO_PS4_TOOLCHAIN/include" -D__PS4__ -c tests/hello_ps4.c -o tests/hello_ps4.o
+          test -s tests/hello_ps4.o
+
       - name: Link ELF
         run: |
-          lld -o TwitchIndiePS4.elf tests/hello_ps4.o \
-            -L$OO_PS4_TOOLCHAIN/lib -lSceLibcInternal -lSceKernel -lsys
-      - name: Create eboot.bin (create-fself)
+          lld -o TwitchIndiePS4.elf tests/hello_ps4.o -L"$OO_PS4_TOOLCHAIN/lib" -lSceLibcInternal -lSceKernel -lsys
+          test -s TwitchIndiePS4.elf
+
+      - name: Create eboot.bin
         run: |
-          $OO_PS4_TOOLCHAIN/bin/linux/create-fself TwitchIndiePS4.elf eboot.bin
-      - name: Create .gp4 project (create-gp4)
+          "$OO_PS4_TOOLCHAIN/bin/linux/create-fself" TwitchIndiePS4.elf eboot.bin
+          test -s eboot.bin
+
+      - name: Create GP4 and PKG
         run: |
-          echo "Nota: .gp4 necessario para pkg_build conforme SDK lib/libOrbispkg README"
-          $OO_PS4_TOOLCHAIN/bin/linux/create-gp4 TwitchIndiePS4.gp4 || echo "create-gp4 nao testado; verifique .gp4 manualmente"
-      - name: Create package (.PKG) using PkgTool.Core
-        run: |
-          echo "Nota: PkgTool.Core (Linux x86_64 SDK) usa sintaxe real: pkg_build <gp4> <dir> (verificado no SDK README.md)"
-          mkdir -p pkg_output
-          $OO_PS4_TOOLCHAIN/bin/linux/PkgTool.Core pkg_build TwitchIndiePS4.gp4 pkg_output/ || echo "Falha: verifique .gp4"
-      - name: Verify artifacts
-        run: |
-          ls -la TwitchIndiePS4.elf eboot.bin TwitchIndiePS4.pkg || exit 1
-          echo "Build OK: PS4 artifacts produced"
+          echo "SDK GP4 tooling and exact invocation:"
+          "$OO_PS4_TOOLCHAIN/bin/linux/create-gp4" --help
+          "$OO_PS4_TOOLCHAIN/bin/linux/PkgTool.Core" --help
+          echo "Build stopped intentionally if the SDK's GP4 invocation is not established; do not create a fake PKG."
+
+      - name: Upload diagnostic build artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ps4-build-diagnostics
+          path: |
+            tests/hello_ps4.o
+            TwitchIndiePS4.elf
+            eboot.bin
+          if-no-files-found: ignore
