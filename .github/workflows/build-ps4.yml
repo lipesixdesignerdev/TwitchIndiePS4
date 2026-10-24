@@ -3,10 +3,6 @@ name: Build PS4 GoldHEN 12.52
 on:
   push:
     branches: [master]
-
-on:
-  push:
-    branches: [master]
   pull_request:
     branches: [master]
   workflow_dispatch:
