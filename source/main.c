@@ -10,8 +10,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/sys.h>
-#include <sys/module.h>
 
 #include "common.h"
 #include "twitch_search.h"
