@@ -16,6 +16,11 @@
 #include "player.h"
 #include "ui.h"
 
+void process_input(int *selected, int *running, int count);
+void init_network(void);
+void cleanup_network(void);
+void sleep_millis(int ms);
+
 /*
  * Notas de compatibilidade:
  * - GoldHEN 12.52: requer compilacao com SDK atualizado para FW 12.52
