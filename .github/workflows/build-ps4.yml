@@ -94,11 +94,11 @@ jobs:
       - name: Generate GP4 and PKG
         run: |
           set -euxo pipefail
-          "$OO_PS4_TOOLCHAIN/bin/linux/create-gp4" -out build/TwitchIndiePS4.gp4 \
+          "$OO_PS4_TOOLCHAIN/bin/linux/create-gp4" -out TwitchIndiePS4.gp4 \
             --content-id=IV0000-TWIN00001_00-TWITCHINDIE00000 \
             --files "eboot.bin sce_sys/param.sfo sce_sys/icon0.png"
-          test -s build/TwitchIndiePS4.gp4
-          "$OO_PS4_TOOLCHAIN/bin/linux/PkgTool.Core" pkg_build build/TwitchIndiePS4.gp4 pkg_output/
+          test -s TwitchIndiePS4.gp4
+          "$OO_PS4_TOOLCHAIN/bin/linux/PkgTool.Core" pkg_build TwitchIndiePS4.gp4 pkg_output/
           find pkg_output -maxdepth 2 -type f -name '*.pkg' -print
           test -n "$(find pkg_output -maxdepth 2 -type f -name '*.pkg' -print -quit)"
 
@@ -112,6 +112,7 @@ jobs:
             build/*.elf
             build/*.oelf
             build/*.gp4
+            TwitchIndiePS4.gp4
             eboot.bin
             sce_sys/param.sfo
           if-no-files-found: ignore
