@@ -182,7 +182,10 @@ jobs:
             --type Integer --maxsize 4 --value 0
 
           "$TOOL" sfo_setentry sce_sys/param.sfo CATEGORY \
-            --type Utf8 --maxsize 4 --value 'gd'
+            --type Utf8 --maxsize 4 --value 'gde'
+
+          "$TOOL" sfo_setentry sce_sys/param.sfo FORMAT \
+            --type Utf8 --maxsize 4 --value 'obs'
 
           "$TOOL" sfo_setentry sce_sys/param.sfo CONTENT_ID \
             --type Utf8 --maxsize 48 \
@@ -192,7 +195,7 @@ jobs:
             --type Integer --maxsize 4 --value 0
 
           "$TOOL" sfo_setentry sce_sys/param.sfo SYSTEM_VER \
-            --type Integer --maxsize 4 --value 0
+            --type Integer --maxsize 4 --value 1020
 
           "$TOOL" sfo_setentry sce_sys/param.sfo TITLE \
             --type Utf8 --maxsize 128 --value 'Twitch Indie'
