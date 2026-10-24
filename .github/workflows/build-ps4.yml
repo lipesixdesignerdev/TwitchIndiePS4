@@ -1,3 +1,4 @@
+```yaml
 name: Build PS4 GoldHEN 12.52
 
 on:
@@ -22,7 +23,7 @@ jobs:
         run: |
           set -euxo pipefail
           sudo apt-get update
-          sudo apt-get install -y clang lld python3 curl tar file
+          sudo apt-get install -y clang lld python3 curl tar file binutils
 
           # OpenOrbis v0.5.4 PkgTool.Core requires the legacy OpenSSL 1.1 ABI.
           curl --fail --location --retry 3 \
@@ -122,11 +123,23 @@ jobs:
           test -s build/TwitchIndiePS4.oelf
           test -s eboot.bin
 
-          echo "=== ELF original ==="
+          echo "=== ELF original: file ==="
           file build/TwitchIndiePS4.elf
 
-          echo "=== OELF gerado ==="
+          echo "=== ELF original: header ==="
+          readelf -h build/TwitchIndiePS4.elf
+
+          echo "=== ELF original: program headers ==="
+          readelf -l build/TwitchIndiePS4.elf
+
+          echo "=== OELF gerado: file ==="
           file build/TwitchIndiePS4.oelf
+
+          echo "=== OELF gerado: header ==="
+          readelf -h build/TwitchIndiePS4.oelf
+
+          echo "=== OELF gerado: program headers ==="
+          readelf -l build/TwitchIndiePS4.oelf
 
           echo "=== EBOOT gerado ==="
           file eboot.bin
@@ -222,3 +235,4 @@ jobs:
             sce_sys/param.sfo
             sce_sys/icon0.png
           if-no-files-found: ignore
+```
