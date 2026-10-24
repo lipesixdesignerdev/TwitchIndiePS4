@@ -154,9 +154,19 @@ jobs:
         run: |
           set -euxo pipefail
 
-          mkdir -p sce_sys pkg_output
+          mkdir -p sce_sys/about sce_module pkg_output
           test -s assets/icon0.png
           cp assets/icon0.png sce_sys/icon0.png
+
+          # Match the OpenOrbis sample package layout: include the runtime
+          # PRX modules and the required rights module instead of packaging
+          # only eboot.bin and sce_sys metadata.
+          test -s "$OO_PS4_TOOLCHAIN/samples/piglet/sce_module/libc.prx"
+          test -s "$OO_PS4_TOOLCHAIN/samples/piglet/sce_module/libSceFios2.prx"
+          test -s "$OO_PS4_TOOLCHAIN/samples/piglet/sce_sys/about/right.sprx"
+          cp "$OO_PS4_TOOLCHAIN/samples/piglet/sce_module/libc.prx" sce_module/
+          cp "$OO_PS4_TOOLCHAIN/samples/piglet/sce_module/libSceFios2.prx" sce_module/
+          cp "$OO_PS4_TOOLCHAIN/samples/piglet/sce_sys/about/right.sprx" sce_sys/about/right.sprx
 
           TOOL="$OO_PS4_TOOLCHAIN/bin/linux/PkgTool.Core"
 
@@ -205,7 +215,7 @@ jobs:
           "$OO_PS4_TOOLCHAIN/bin/linux/create-gp4" \
             -out TwitchIndiePS4.gp4 \
             --content-id=IV0000-TWIN00001_00-TWITCHINDIE00000 \
-            --files "eboot.bin sce_sys/param.sfo sce_sys/icon0.png"
+            --files "eboot.bin sce_sys/param.sfo sce_sys/icon0.png sce_sys/about/right.sprx sce_module/libc.prx sce_module/libSceFios2.prx"
 
           test -s TwitchIndiePS4.gp4
 
