@@ -77,7 +77,7 @@ jobs:
           "$TOOL" sfo_setentry sce_sys/param.sfo APP_VER --type Utf8 --maxsize 8 --value '01.00'
           "$TOOL" sfo_setentry sce_sys/param.sfo ATTRIBUTE --type Integer --maxsize 4 --value 0
           "$TOOL" sfo_setentry sce_sys/param.sfo CATEGORY --type Utf8 --maxsize 4 --value 'gd'
-          "$TOOL" sfo_setentry sce_sys/param.sfo CONTENT_ID --type Utf8 --maxsize 48 --value 'IV0000-TWIN00001_00-TWITCHINDIE000000'
+          "$TOOL" sfo_setentry sce_sys/param.sfo CONTENT_ID --type Utf8 --maxsize 48 --value 'IV0000-TWIN00001_00-TWITCHINDIE00000'
           "$TOOL" sfo_setentry sce_sys/param.sfo DOWNLOAD_DATA_SIZE --type Integer --maxsize 4 --value 0
           "$TOOL" sfo_setentry sce_sys/param.sfo SYSTEM_VER --type Integer --maxsize 4 --value 0
           "$TOOL" sfo_setentry sce_sys/param.sfo TITLE --type Utf8 --maxsize 128 --value 'Twitch Indie'
@@ -88,8 +88,8 @@ jobs:
       - name: Generate GP4 and PKG
         run: |
           set -euxo pipefail
-          "$OO_PS4_TOOLCHAIN/bin/linux/create-gp4" -out=build/TwitchIndiePS4.gp4 \
-            --content-id=IV0000-TWIN00001_00-TWITCHINDIE000000 \
+          "$OO_PS4_TOOLCHAIN/bin/linux/create-gp4" -out build/TwitchIndiePS4.gp4 \
+            --content-id=IV0000-TWIN00001_00-TWITCHINDIE00000 \
             --files "eboot.bin sce_sys/param.sfo sce_sys/icon0.png"
           test -s build/TwitchIndiePS4.gp4
           "$OO_PS4_TOOLCHAIN/bin/linux/PkgTool.Core" pkg_build build/TwitchIndiePS4.gp4 pkg_output/
