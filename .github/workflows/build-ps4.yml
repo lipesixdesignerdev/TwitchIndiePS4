@@ -13,26 +13,38 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Install build dependencies
         run: |
+          set -euxo pipefail
           sudo apt-get update
-          sudo apt-get install -y clang lld python3 curl tar
+          sudo apt-get install -y clang lld python3 curl tar file
+
           # OpenOrbis v0.5.4 PkgTool.Core requires the legacy OpenSSL 1.1 ABI.
           curl --fail --location --retry 3 \
             --output /tmp/libssl1.1.deb \
             https://debian.sipwise.com/debian-security/pool/main/o/openssl/libssl1.1_1.1.1w-0+deb11u8_amd64.deb
-          echo "dcc68a543de6cb955a57077b66dcdb15f61d1e31e072f2c6cc4082c37da1b00d  /tmp/libssl1.1.deb" | sha256sum --check
+
+          echo "dcc68a543de6cb955a57077b66dcdb15f61d1e31e072f2c6cc4082c37da1b00d  /tmp/libssl1.1.deb" \
+            | sha256sum --check
+
           sudo dpkg -i /tmp/libssl1.1.deb
 
       - name: Download and extract OpenOrbis Toolchain
         run: |
-          curl --fail --location --retry 3 --output toolchain-llvm-18.tar.gz \
+          set -euxo pipefail
+
+          curl --fail --location --retry 3 \
+            --output toolchain-llvm-18.tar.gz \
             https://github.com/OpenOrbis/OpenOrbis-PS4-Toolchain/releases/download/v0.5.4/toolchain-llvm-18.tar.gz
+
           mkdir -p "$HOME/ps4sdk"
           tar -xzf toolchain-llvm-18.tar.gz -C "$HOME/ps4sdk"
+
           test -d "$HOME/ps4sdk/OpenOrbis/PS4Toolchain"
 
       - name: Set SDK environment
@@ -44,12 +56,28 @@ jobs:
         run: |
           set -euxo pipefail
           mkdir -p build
-          for src in source/main.c source/twitch_search.c source/player.c source/ui.c; do
+
+          for src in \
+            source/main.c \
+            source/twitch_search.c \
+            source/player.c \
+            source/ui.c; do
+
             obj="build/$(basename "${src%.c}").o"
-            clang --target=x86_64-pc-freebsd12-elf -fPIC -funwind-tables \
-              -isysroot "$OO_PS4_TOOLCHAIN" -isystem "$OO_PS4_TOOLCHAIN/include" \
-              -Iinclude -O2 -Wall -Wextra -c "$src" -o "$obj"
+
+            clang --target=x86_64-pc-freebsd12-elf \
+              -fPIC \
+              -funwind-tables \
+              -isysroot "$OO_PS4_TOOLCHAIN" \
+              -isystem "$OO_PS4_TOOLCHAIN/include" \
+              -Iinclude \
+              -O2 \
+              -Wall \
+              -Wextra \
+              -c "$src" \
+              -o "$obj"
           done
+
           test -s build/main.o
           test -s build/twitch_search.o
           test -s build/player.o
@@ -58,49 +86,126 @@ jobs:
       - name: Link PS4 ELF
         run: |
           set -euxo pipefail
-          ld.lld -m elf_x86_64 -pie --script "$OO_PS4_TOOLCHAIN/link.x" --eh-frame-hdr \
-            -L"$OO_PS4_TOOLCHAIN/lib" -lc -lkernel \
-            "$OO_PS4_TOOLCHAIN/lib/crt1.o" build/main.o build/twitch_search.o build/player.o build/ui.o \
+
+          ld.lld -m elf_x86_64 -pie \
+            --script "$OO_PS4_TOOLCHAIN/link.x" \
+            --eh-frame-hdr \
+            -L"$OO_PS4_TOOLCHAIN/lib" \
+            -lc -lkernel \
+            "$OO_PS4_TOOLCHAIN/lib/crt1.o" \
+            build/main.o \
+            build/twitch_search.o \
+            build/player.o \
+            build/ui.o \
             -o build/TwitchIndiePS4.elf
+
           test -s build/TwitchIndiePS4.elf
 
       - name: Create eboot.bin
         run: |
           set -euxo pipefail
+
           "$OO_PS4_TOOLCHAIN/bin/linux/create-fself" \
-            -in=build/TwitchIndiePS4.elf -out=build/TwitchIndiePS4.oelf \
-            --eboot "eboot.bin" --paid 0x3800000000000011
+            -in=build/TwitchIndiePS4.elf \
+            -out=build/TwitchIndiePS4.oelf \
+            --eboot "eboot.bin" \
+            --paid 0x3800000000000011
+
+          test -s build/TwitchIndiePS4.oelf
           test -s eboot.bin
+
+      - name: Validate executable and report diagnostics
+        run: |
+          set -euxo pipefail
+
+          test -s build/TwitchIndiePS4.elf
+          test -s build/TwitchIndiePS4.oelf
+          test -s eboot.bin
+
+          echo "=== ELF original ==="
+          file build/TwitchIndiePS4.elf
+
+          echo "=== OELF gerado ==="
+          file build/TwitchIndiePS4.oelf
+
+          echo "=== EBOOT gerado ==="
+          file eboot.bin
+          od -An -tx1 -N32 eboot.bin
+
+          echo "=== Tamanhos ==="
+          stat -c '%n %s bytes' \
+            build/TwitchIndiePS4.elf \
+            build/TwitchIndiePS4.oelf \
+            eboot.bin
 
       - name: Create SFO metadata
         run: |
           set -euxo pipefail
+
           mkdir -p sce_sys pkg_output
+          test -s assets/icon0.png
           cp assets/icon0.png sce_sys/icon0.png
+
           TOOL="$OO_PS4_TOOLCHAIN/bin/linux/PkgTool.Core"
+
           "$TOOL" sfo_new sce_sys/param.sfo
-          "$TOOL" sfo_setentry sce_sys/param.sfo APP_TYPE --type Integer --maxsize 4 --value 1
-          "$TOOL" sfo_setentry sce_sys/param.sfo APP_VER --type Utf8 --maxsize 8 --value '01.00'
-          "$TOOL" sfo_setentry sce_sys/param.sfo ATTRIBUTE --type Integer --maxsize 4 --value 0
-          "$TOOL" sfo_setentry sce_sys/param.sfo CATEGORY --type Utf8 --maxsize 4 --value 'gd'
-          "$TOOL" sfo_setentry sce_sys/param.sfo CONTENT_ID --type Utf8 --maxsize 48 --value 'IV0000-TWIN00001_00-TWITCHINDIE00000'
-          "$TOOL" sfo_setentry sce_sys/param.sfo DOWNLOAD_DATA_SIZE --type Integer --maxsize 4 --value 0
-          "$TOOL" sfo_setentry sce_sys/param.sfo SYSTEM_VER --type Integer --maxsize 4 --value 0
-          "$TOOL" sfo_setentry sce_sys/param.sfo TITLE --type Utf8 --maxsize 128 --value 'Twitch Indie'
-          "$TOOL" sfo_setentry sce_sys/param.sfo TITLE_ID --type Utf8 --maxsize 12 --value 'TWIN00001'
-          "$TOOL" sfo_setentry sce_sys/param.sfo VERSION --type Utf8 --maxsize 8 --value '01.00'
+
+          "$TOOL" sfo_setentry sce_sys/param.sfo APP_TYPE \
+            --type Integer --maxsize 4 --value 1
+
+          "$TOOL" sfo_setentry sce_sys/param.sfo APP_VER \
+            --type Utf8 --maxsize 8 --value '01.00'
+
+          "$TOOL" sfo_setentry sce_sys/param.sfo ATTRIBUTE \
+            --type Integer --maxsize 4 --value 0
+
+          "$TOOL" sfo_setentry sce_sys/param.sfo CATEGORY \
+            --type Utf8 --maxsize 4 --value 'gd'
+
+          "$TOOL" sfo_setentry sce_sys/param.sfo CONTENT_ID \
+            --type Utf8 --maxsize 48 \
+            --value 'IV0000-TWIN00001_00-TWITCHINDIE00000'
+
+          "$TOOL" sfo_setentry sce_sys/param.sfo DOWNLOAD_DATA_SIZE \
+            --type Integer --maxsize 4 --value 0
+
+          "$TOOL" sfo_setentry sce_sys/param.sfo SYSTEM_VER \
+            --type Integer --maxsize 4 --value 0
+
+          "$TOOL" sfo_setentry sce_sys/param.sfo TITLE \
+            --type Utf8 --maxsize 128 --value 'Twitch Indie'
+
+          "$TOOL" sfo_setentry sce_sys/param.sfo TITLE_ID \
+            --type Utf8 --maxsize 12 --value 'TWIN00001'
+
+          "$TOOL" sfo_setentry sce_sys/param.sfo VERSION \
+            --type Utf8 --maxsize 8 --value '01.00'
+
           test -s sce_sys/param.sfo
+
+          echo "=== SFO gerado ==="
+          ls -lh sce_sys/param.sfo
 
       - name: Generate GP4 and PKG
         run: |
           set -euxo pipefail
-          "$OO_PS4_TOOLCHAIN/bin/linux/create-gp4" -out TwitchIndiePS4.gp4 \
+
+          "$OO_PS4_TOOLCHAIN/bin/linux/create-gp4" \
+            -out TwitchIndiePS4.gp4 \
             --content-id=IV0000-TWIN00001_00-TWITCHINDIE00000 \
             --files "eboot.bin sce_sys/param.sfo sce_sys/icon0.png"
+
           test -s TwitchIndiePS4.gp4
-          "$OO_PS4_TOOLCHAIN/bin/linux/PkgTool.Core" pkg_build TwitchIndiePS4.gp4 pkg_output/
-          find pkg_output -maxdepth 2 -type f -name '*.pkg' -print
-          test -n "$(find pkg_output -maxdepth 2 -type f -name '*.pkg' -print -quit)"
+
+          "$OO_PS4_TOOLCHAIN/bin/linux/PkgTool.Core" \
+            pkg_build TwitchIndiePS4.gp4 pkg_output/
+
+          PKG="$(find pkg_output -maxdepth 2 -type f -name '*.pkg' -print -quit)"
+          test -n "$PKG"
+          test -s "$PKG"
+
+          echo "=== PKG gerado ==="
+          stat -c '%n %s bytes' "$PKG"
 
       - name: Upload PKG and diagnostics
         if: always()
@@ -111,8 +216,9 @@ jobs:
             pkg_output/*.pkg
             build/*.elf
             build/*.oelf
-            build/*.gp4
+            build/*.o
             TwitchIndiePS4.gp4
             eboot.bin
             sce_sys/param.sfo
+            sce_sys/icon0.png
           if-no-files-found: ignore
