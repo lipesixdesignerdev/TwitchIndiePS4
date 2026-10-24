@@ -20,6 +20,12 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y clang lld python3 curl tar
+          # OpenOrbis v0.5.4 PkgTool.Core requires the legacy OpenSSL 1.1 ABI.
+          curl --fail --location --retry 3 \
+            --output /tmp/libssl1.1.deb \
+            https://security.debian.org/debian-security/pool/updates/main/o/openssl/libssl1.1_1.1.1w-0+deb11u8_amd64.deb
+          echo "dcc68a543de6cb955a57077b66dcdb15f61d1e31e072f2c6cc4082c37da1b00d  /tmp/libssl1.1.deb" | sha256sum --check
+          sudo dpkg -i /tmp/libssl1.1.deb
 
       - name: Download and extract OpenOrbis Toolchain
         run: |
