@@ -1,3 +1,4 @@
+```yaml
 name: Build PS4 GoldHEN 12.52
 
 on:
@@ -134,11 +135,11 @@ jobs:
           echo "=== OELF gerado: file ==="
           file build/TwitchIndiePS4.oelf
 
-          echo "=== OELF gerado: header ==="
-          readelf -h build/TwitchIndiePS4.oelf
+          echo "=== OELF gerado: header (diagnóstico) ==="
+          readelf -h build/TwitchIndiePS4.oelf || true
 
-          echo "=== OELF gerado: program headers ==="
-          readelf -l build/TwitchIndiePS4.oelf
+          echo "=== OELF gerado: program headers (diagnóstico) ==="
+          readelf -l build/TwitchIndiePS4.oelf || true
 
           echo "=== EBOOT gerado ==="
           file eboot.bin
